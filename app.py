@@ -74,8 +74,3 @@ if submitted:
         churn_probability = probabilities[churn_index] * 100
         st.write(f"Churn Probability: {churn_probability:.2f}%")
 
-
-streamlit
-pandas
-scikit-learn
-joblib
