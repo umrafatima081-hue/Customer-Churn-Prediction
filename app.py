@@ -6,10 +6,12 @@ import joblib
 model = joblib.load("customer_churn_model.pkl")
 
 st.set_page_config(page_title="Customer Churn Prediction")
+
 st.title("Customer Churn Prediction")
 st.write("Enter customer details to predict churn.")
 
 with st.form("customer_form"):
+
     gender = st.selectbox("Gender", ["Male", "Female"])
     senior = st.selectbox("Senior Citizen", [0, 1])
     partner = st.selectbox("Partner", ["Yes", "No"])
@@ -28,17 +30,25 @@ with st.form("customer_form"):
 
     contract = st.selectbox("Contract", ["Month-to-month", "One year", "Two year"])
     paperless = st.selectbox("Paperless Billing", ["Yes", "No"])
-    payment = st.selectbox("Payment Method", [
-        "Electronic check", "Mailed check",
-        "Bank transfer (automatic)", "Credit card (automatic)"
-    ])
+
+    payment = st.selectbox(
+        "Payment Method",
+        [
+            "Electronic check",
+            "Mailed check",
+            "Bank transfer (automatic)",
+            "Credit card (automatic)"
+        ]
+    )
 
     monthly = st.number_input("Monthly Charges", min_value=0.0, value=70.0)
     total = st.number_input("Total Charges", min_value=0.0, value=500.0)
 
     submitted = st.form_submit_button("Predict Churn")
 
+
 if submitted:
+
     input_data = pd.DataFrame([{
         "gender": gender,
         "SeniorCitizen": senior,
@@ -62,15 +72,24 @@ if submitted:
     }])
 
     prediction = model.predict(input_data)[0]
+    classes = list(model.classes_)
 
-    if prediction == "Yes":
-        st.error("Customer is likely to leave (Churn).")
+    churn_label = next(
+        (label for label in classes if str(label).strip().lower() in ["yes", "1", "true"]),
+        None
+    )
+
+    if churn_label is None:
+        st.error("Churn class could not be identified in the model.")
     else:
-        st.success("Customer is likely to stay (No Churn).")
+        if prediction == churn_label:
+            st.error("Customer is likely to leave (Churn).")
+        else:
+            st.success("Customer is likely to stay (No Churn).")
 
-    if hasattr(model, "predict_proba"):
-        probabilities = model.predict_proba(input_data)[0]
-        churn_index = list(model.classes_).index("Yes")
-        churn_probability = probabilities[churn_index] * 100
-        st.write(f"Churn Probability: {churn_probability:.2f}%")
+        if hasattr(model, "predict_proba"):
+            probabilities = model.predict_proba(input_data)[0]
+            churn_index = classes.index(churn_label)
+            churn_probability = probabilities[churn_index] * 100
 
+            st.write(f"Churn Probability: {churn_probability:.2f}%")
