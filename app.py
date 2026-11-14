@@ -3,7 +3,7 @@ import streamlit as st
 import pandas as pd
 import joblib
 
-model = joblib.load("model.pkl")
+model = joblib.load("customer_churn_model.pkl")
 
 st.set_page_config(page_title="Customer Churn Prediction")
 st.title("Customer Churn Prediction")
