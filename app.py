@@ -12,6 +12,8 @@ st.set_page_config(
     layout="wide"
 )
 
+# ---------------- CUSTOM DESIGN ----------------
+
 st.markdown("""
 <style>
 .stApp {
@@ -35,11 +37,49 @@ div.stButton > button:hover {
     background-color: #1D4ED8;
     color: white;
 }
+.ai-header {
+    background: linear-gradient(110deg, #14213d, #25205a, #123b50);
+    padding: 24px;
+    border-radius: 16px;
+    border: 1px solid #334a78;
+    margin-bottom: 20px;
+}
+.ai-header h2 {
+    color: #ffffff !important;
+    margin: 0;
+}
+.ai-header p {
+    color: #b9c9e8;
+    margin: 6px 0 0 0;
+}
+.kpi-card {
+    background: linear-gradient(145deg, #17243d, #202d4a);
+    border: 1px solid #344767;
+    border-radius: 14px;
+    padding: 18px;
+    min-height: 120px;
+}
+.kpi-label {
+    color: #a9bad5;
+    font-size: 14px;
+    margin-bottom: 10px;
+}
+.kpi-value {
+    color: #ffffff;
+    font-size: 29px;
+    font-weight: 700;
+}
+.kpi-note {
+    color: #8da5c9;
+    font-size: 12px;
+    margin-top: 5px;
+}
 </style>
 """, unsafe_allow_html=True)
 
 
-# SUPABASE CONNECTION
+# ---------------- SUPABASE CONNECTION ----------------
+
 @st.cache_resource
 def get_supabase():
     return create_client(
@@ -54,7 +94,8 @@ except Exception:
     supabase = None
 
 
-# LOGIN SCREEN
+# ---------------- LOGIN SCREEN ----------------
+
 if not st.session_state.get("logged_in", False):
 
     st.title("🔐 Customer Churn Prediction")
@@ -80,7 +121,8 @@ if not st.session_state.get("logged_in", False):
     st.stop()
 
 
-# LOAD MODEL
+# ---------------- LOAD MODEL ----------------
+
 try:
     model = joblib.load("customer_churn_model.pkl")
 except Exception:
@@ -88,12 +130,14 @@ except Exception:
     st.stop()
 
 
-# USER DETAILS
+# ---------------- USER DETAILS ----------------
+
 user_id = st.session_state.get("user_id", "User")
 role = st.session_state.get("role", "employee")
 
 
-# SIDEBAR
+# ---------------- SIDEBAR ----------------
+
 st.sidebar.title("📊 Churn Dashboard")
 st.sidebar.write(f"Welcome, {user_id}")
 st.sidebar.write(f"Role: {role.title()}")
@@ -103,7 +147,10 @@ if st.sidebar.button("Logout", use_container_width=True):
     st.rerun()
 
 
+# ==================================================
 # ADMIN DASHBOARD
+# ==================================================
+
 if role == "admin":
 
     st.title("🛡️ Admin Dashboard")
@@ -128,11 +175,21 @@ if role == "admin":
         "Customer Churn Prediction System."
     )
 
-    # REAL PREDICTION HISTORY AND ANALYTICS
+    # ----------------------------------------------
+    # AI INTELLIGENCE CENTER
+    # ----------------------------------------------
+
     st.divider()
-    st.subheader("📊 Prediction History & Analytics")
+
+    st.markdown("""
+    <div class="ai-header">
+        <h2>🧠 AI Intelligence Center</h2>
+        <p>Customer churn insights • Prediction monitoring • Employee activity</p>
+    </div>
+    """, unsafe_allow_html=True)
 
     if supabase is not None:
+
         try:
             response = (
                 supabase.table("prediction_history")
@@ -147,6 +204,7 @@ if role == "admin":
             if not history_df.empty:
 
                 # PREPARE DATA
+
                 history_df["prediction_status"] = (
                     history_df["prediction"]
                     .astype(str)
@@ -164,65 +222,135 @@ if role == "admin":
                     errors="coerce"
                 )
 
+                history_df["created_at"] = pd.to_datetime(
+                    history_df["created_at"],
+                    utc=True,
+                    errors="coerce"
+                )
+
                 total_predictions = len(history_df)
-                churn_count = int(history_df["churn_status"].sum())
-                stay_count = total_predictions - churn_count
+
+                churn_count = int(
+                    history_df["churn_status"].sum()
+                )
+
+                stay_count = (
+                    total_predictions - churn_count
+                )
 
                 churn_percentage = (
                     churn_count / total_predictions * 100
                 )
 
+                avg_probability = (
+                    history_df["churn_probability"].mean()
+                )
+
+                avg_probability_text = (
+                    f"{avg_probability:.1f}%"
+                    if pd.notna(avg_probability)
+                    else "N/A"
+                )
+
                 # KPI CARDS
-                st.markdown("### 📌 Key Performance Indicators")
 
-                c1, c2, c3, c4 = st.columns(4)
+                st.markdown("### ⚡ System Performance Overview")
 
-                c1.metric(
-                    "Total Predictions",
-                    total_predictions
-                )
+                k1, k2, k3, k4 = st.columns(4)
 
-                c2.metric(
-                    "Churn Rate",
-                    f"{churn_percentage:.2f}%"
-                )
+                kpi_items = [
+                    (
+                        "📊 Total Predictions",
+                        f"{total_predictions:,}",
+                        "All saved predictions",
+                        k1
+                    ),
+                    (
+                        "🔥 Churn Rate",
+                        f"{churn_percentage:.1f}%",
+                        "Customers predicted to leave",
+                        k2
+                    ),
+                    (
+                        "🟢 Customers Staying",
+                        f"{stay_count:,}",
+                        "Predicted as non-churn",
+                        k3
+                    ),
+                    (
+                        "🎯 Avg. Churn Probability",
+                        avg_probability_text,
+                        "Average model probability",
+                        k4
+                    )
+                ]
 
-                c3.metric(
-                    "Churn Customers",
-                    churn_count
-                )
+                for label, value, note, column in kpi_items:
 
-                c4.metric(
-                    "Customers Staying",
-                    stay_count
-                )
+                    with column:
+
+                        st.markdown(
+                            f"""
+                            <div class="kpi-card">
+                                <div class="kpi-label">{label}</div>
+                                <div class="kpi-value">{value}</div>
+                                <div class="kpi-note">{note}</div>
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
 
                 st.divider()
 
-                # DONUT AND EMPLOYEE BAR CHART
-                st.markdown("### 📈 Customer Churn Analysis")
+                # CHURN ANALYSIS
+
+                st.markdown("### 📈 Customer Churn Intelligence")
 
                 chart_col1, chart_col2 = st.columns(2)
 
-                donut_df = pd.DataFrame({
-                    "Customer Status": ["Churn", "Not Churn"],
-                    "Count": [churn_count, stay_count]
-                })
-
                 with chart_col1:
+
+                    donut_df = pd.DataFrame({
+                        "Customer Status": [
+                            "Churn",
+                            "Not Churn"
+                        ],
+                        "Count": [
+                            churn_count,
+                            stay_count
+                        ]
+                    })
 
                     fig_donut = px.pie(
                         donut_df,
                         names="Customer Status",
                         values="Count",
-                        hole=0.55,
-                        title="Churn vs Non-Churn Customers"
+                        hole=0.68,
+                        color="Customer Status",
+                        color_discrete_map={
+                            "Churn": "#EC4899",
+                            "Not Churn": "#22D3EE"
+                        }
+                    )
+
+                    fig_donut.update_traces(
+                        textposition="inside",
+                        textinfo="percent",
+                        marker=dict(
+                            line=dict(
+                                color="#0B1120",
+                                width=4
+                            )
+                        )
                     )
 
                     fig_donut.update_layout(
+                        title="Churn vs Non-Churn",
                         template="plotly_dark",
                         paper_bgcolor="rgba(0,0,0,0)",
-                        font_color="white"
+                        plot_bgcolor="rgba(0,0,0,0)",
+                        font=dict(color="#E5EEFF"),
+                        height=350
                     )
 
                     st.plotly_chart(
@@ -236,21 +364,33 @@ if role == "admin":
                         history_df.groupby("employee_id")
                         .size()
                         .reset_index(name="Predictions")
+                        .sort_values("Predictions")
                     )
 
                     fig_employee = px.bar(
                         employee_df,
-                        x="employee_id",
-                        y="Predictions",
-                        color="employee_id",
-                        title="Predictions by Employee",
+                        x="Predictions",
+                        y="employee_id",
+                        orientation="h",
+                        color="Predictions",
+                        color_continuous_scale=[
+                            "#263B70",
+                            "#22D3EE",
+                            "#8B5CF6"
+                        ],
                         text="Predictions"
                     )
 
                     fig_employee.update_layout(
+                        title="Prediction Activity by Employee",
                         template="plotly_dark",
                         paper_bgcolor="rgba(0,0,0,0)",
-                        showlegend=False
+                        plot_bgcolor="rgba(0,0,0,0)",
+                        font=dict(color="#E5EEFF"),
+                        coloraxis_showscale=False,
+                        xaxis_title="Number of Predictions",
+                        yaxis_title="Employee",
+                        height=350
                     )
 
                     st.plotly_chart(
@@ -261,13 +401,8 @@ if role == "admin":
                 st.divider()
 
                 # DAILY PREDICTION TREND
-                st.markdown("### 📅 Prediction Trends")
 
-                history_df["created_at"] = pd.to_datetime(
-                    history_df["created_at"],
-                    utc=True,
-                    errors="coerce"
-                )
+                st.markdown("### 🌐 Prediction Activity Timeline")
 
                 trend_df = history_df.dropna(
                     subset=["created_at"]
@@ -276,7 +411,7 @@ if role == "admin":
                 if not trend_df.empty:
 
                     trend_df["prediction_date"] = (
-                        trend_df["created_at"].dt.date.astype(str)
+                        trend_df["created_at"].dt.strftime("%Y-%m-%d")
                     )
 
                     daily_df = (
@@ -286,19 +421,34 @@ if role == "admin":
                         .sort_values("prediction_date")
                     )
 
-                    fig_trend = px.line(
+                    fig_trend = px.area(
                         daily_df,
                         x="prediction_date",
                         y="Predictions",
-                        markers=True,
-                        title="Daily Prediction Activity"
+                        markers=True
+                    )
+
+                    fig_trend.update_traces(
+                        line=dict(
+                            color="#22D3EE",
+                            width=3
+                        ),
+                        fillcolor="rgba(34,211,238,0.18)",
+                        marker=dict(
+                            color="#8B5CF6",
+                            size=8
+                        )
                     )
 
                     fig_trend.update_layout(
+                        title="Daily Prediction Volume",
                         template="plotly_dark",
                         paper_bgcolor="rgba(0,0,0,0)",
+                        plot_bgcolor="rgba(0,0,0,0)",
+                        font=dict(color="#E5EEFF"),
                         xaxis_title="Date",
-                        yaxis_title="Number of Predictions"
+                        yaxis_title="Predictions",
+                        height=350
                     )
 
                     st.plotly_chart(
@@ -311,8 +461,9 @@ if role == "admin":
 
                 st.divider()
 
-                # CHURN PROBABILITY HISTOGRAM
-                st.markdown("### 🎯 Churn Probability Distribution")
+                # CHURN PROBABILITY DISTRIBUTION
+
+                st.markdown("### 🎯 AI Churn Probability Distribution")
 
                 probability_df = history_df.dropna(
                     subset=["churn_probability"]
@@ -323,18 +474,25 @@ if role == "admin":
                     fig_probability = px.histogram(
                         probability_df,
                         x="churn_probability",
-                        nbins=10,
-                        title="Customer Churn Probability",
-                        labels={
-                            "churn_probability": "Churn Probability (%)"
-                        }
+                        nbins=12,
+                        color_discrete_sequence=["#8B5CF6"],
+                        opacity=0.9
+                    )
+
+                    fig_probability.update_traces(
+                        marker_line_color="#22D3EE",
+                        marker_line_width=1
                     )
 
                     fig_probability.update_layout(
+                        title="Distribution of Predicted Churn Probability",
                         template="plotly_dark",
                         paper_bgcolor="rgba(0,0,0,0)",
+                        plot_bgcolor="rgba(0,0,0,0)",
+                        font=dict(color="#E5EEFF"),
                         xaxis_title="Churn Probability (%)",
-                        yaxis_title="Number of Customers"
+                        yaxis_title="Number of Customers",
+                        height=350
                     )
 
                     st.plotly_chart(
@@ -342,9 +500,13 @@ if role == "admin":
                         use_container_width=True
                     )
 
+                else:
+                    st.info("Churn probability data is not available.")
+
                 st.divider()
 
                 # RECENT PREDICTION RECORDS
+
                 st.markdown("### 📋 Recent Prediction Records")
 
                 display_columns = [
@@ -354,38 +516,66 @@ if role == "admin":
                     "created_at"
                 ]
 
+                recent_df = history_df[display_columns].copy()
+
+                recent_df["created_at"] = (
+                    recent_df["created_at"]
+                    .dt.strftime("%d %b %Y, %I:%M %p")
+                )
+
+                recent_df = recent_df.rename(columns={
+                    "employee_id": "Employee ID",
+                    "prediction": "Prediction",
+                    "churn_probability": "Churn Probability (%)",
+                    "created_at": "Date & Time"
+                })
+
                 st.dataframe(
-                    history_df[display_columns],
+                    recent_df.head(20),
                     use_container_width=True,
                     hide_index=True
                 )
 
+                st.caption(
+                    "Showing the latest 20 records from prediction history."
+                )
+
             else:
+
                 st.info(
                     "No prediction history found yet. "
-                    "Make a customer prediction to see records here."
+                    "Make a customer prediction to see analytics here."
                 )
 
         except Exception as e:
+
             st.error("Could not load prediction history.")
             st.caption(str(e))
 
     else:
+
         st.warning("Supabase connection is not available.")
+
+    st.divider()
 
     st.subheader("Customer Prediction Access")
     st.write("You can also use the prediction system below.")
 
 else:
 
+    # EMPLOYEE DASHBOARD
+
     st.title("👨‍💼 Employee Dashboard")
     st.info("Welcome to the Employee Prediction Portal")
     st.write("Enter customer details below to predict churn.")
 
+
+# ==================================================
+# CUSTOMER INFORMATION FORM
+# ==================================================
+
 st.divider()
 
-
-# CUSTOMER INFORMATION FORM
 st.subheader("👤 Customer Information")
 
 with st.form("customer_form"):
@@ -394,7 +584,13 @@ with st.form("customer_form"):
     senior = st.selectbox("Senior Citizen", [0, 1])
     partner = st.selectbox("Partner", ["Yes", "No"])
     dependents = st.selectbox("Dependents", ["Yes", "No"])
-    tenure = st.number_input("Tenure (months)", 0, 100, 12)
+
+    tenure = st.number_input(
+        "Tenure (months)",
+        0,
+        100,
+        12
+    )
 
     phone = st.selectbox("Phone Service", ["Yes", "No"])
 
@@ -476,7 +672,10 @@ with st.form("customer_form"):
     )
 
 
+# ==================================================
 # PREDICTION RESULT
+# ==================================================
+
 if submitted:
 
     input_data = pd.DataFrame([{
@@ -502,6 +701,7 @@ if submitted:
     }])
 
     try:
+
         prediction = model.predict(input_data)[0]
         classes = list(model.classes_)
 
@@ -515,20 +715,30 @@ if submitted:
         )
 
         if churn_label is None:
+
             st.error("Churn class could not be identified.")
 
         else:
+
             st.divider()
             st.subheader("📈 Prediction Result")
 
             if prediction == churn_label:
-                st.error("⚠️ Customer is likely to leave (Churn).")
+
+                st.error(
+                    "⚠️ Customer is likely to leave (Churn)."
+                )
+
             else:
-                st.success("✅ Customer is likely to stay (No Churn).")
+
+                st.success(
+                    "✅ Customer is likely to stay (No Churn)."
+                )
 
             if hasattr(model, "predict_proba"):
 
                 probabilities = model.predict_proba(input_data)[0]
+
                 churn_index = classes.index(churn_label)
 
                 churn_probability = float(
@@ -541,12 +751,18 @@ if submitted:
                 )
 
                 st.progress(
-                    min(max(churn_probability / 100, 0.0), 1.0)
+                    min(
+                        max(churn_probability / 100, 0.0),
+                        1.0
+                    )
                 )
 
                 # SAVE PREDICTION TO SUPABASE
+
                 if supabase is not None:
+
                     try:
+
                         supabase.table("prediction_history").insert({
                             "employee_id": user_id,
                             "customer_data": input_data.to_dict(
@@ -561,16 +777,23 @@ if submitted:
                         )
 
                     except Exception as e:
+
                         st.warning(
                             "Prediction completed, but history could not be saved."
                         )
+
                         st.caption(str(e))
 
                 else:
+
                     st.warning(
                         "Prediction completed, but Supabase is not connected."
                     )
 
     except Exception as e:
-        st.error("Prediction failed. Please check the customer details.")
+
+        st.error(
+            "Prediction failed. Please check the customer details."
+        )
+
         st.caption(str(e))
