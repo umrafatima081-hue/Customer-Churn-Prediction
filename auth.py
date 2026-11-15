@@ -1,40 +1,33 @@
-
 import streamlit as st
 import hashlib
 import hmac
 
-# Demo credentials
-# Production mein credentials ko Streamlit Secrets mein rakhein.
-
-USERS = {
-    "EMP001": {
-        "password_hash": hashlib.sha256("Employee@123".encode()).hexdigest(),
-        "role": "employee"
-    },
-    "EMP002": {
-        "password_hash": hashlib.sha256("Employee@456".encode()).hexdigest(),
-        "role": "employee"
-    },
-    "ADMIN001": {
-        "password_hash": hashlib.sha256("Admin@123".encode()).hexdigest(),
-        "role": "admin"
-    }
-}
-
 
 def login(employee_id, password):
-    user = USERS.get(employee_id.strip().upper())
+    employee_id = employee_id.strip().upper()
 
-    if not user:
+    try:
+        users = st.secrets["users"]
+        user = users[employee_id]
+
+        salt = bytes.fromhex(user["salt"])
+        stored_hash = user["password_hash"]
+
+        entered_hash = hashlib.pbkdf2_hmac(
+            "sha256",
+            password.encode("utf-8"),
+            salt,
+            200000
+        ).hex()
+
+        if hmac.compare_digest(entered_hash, stored_hash):
+            st.session_state["logged_in"] = True
+            st.session_state["user_id"] = employee_id
+            st.session_state["role"] = user["role"]
+            return True
+
+    except (KeyError, ValueError, TypeError):
         return False
-
-    entered_hash = hashlib.sha256(password.encode()).hexdigest()
-
-    if hmac.compare_digest(entered_hash, user["password_hash"]):
-        st.session_state["logged_in"] = True
-        st.session_state["user_id"] = employee_id.strip().upper()
-        st.session_state["role"] = user["role"]
-        return True
 
     return False
 
