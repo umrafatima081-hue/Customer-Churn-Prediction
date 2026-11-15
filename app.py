@@ -3,6 +3,7 @@ import streamlit as st
 import pandas as pd
 import joblib
 import auth
+from supabase import create_client
 
 st.set_page_config(
     page_title="Customer Churn Prediction",
@@ -35,6 +36,21 @@ div.stButton > button:hover {
 }
 </style>
 """, unsafe_allow_html=True)
+
+
+# SUPABASE CONNECTION
+@st.cache_resource
+def get_supabase():
+    return create_client(
+        st.secrets["SUPABASE_URL"],
+        st.secrets["SUPABASE_SERVICE_ROLE_KEY"]
+    )
+
+
+try:
+    supabase = get_supabase()
+except Exception:
+    supabase = None
 
 
 # LOGIN SCREEN
@@ -86,7 +102,7 @@ if st.sidebar.button("Logout", use_container_width=True):
     st.rerun()
 
 
-# SEPARATE DASHBOARDS
+# ADMIN DASHBOARD
 if role == "admin":
 
     st.title("🛡️ Admin Dashboard")
@@ -110,6 +126,86 @@ if role == "admin":
         "You have administrator access to the "
         "Customer Churn Prediction System."
     )
+
+    # REAL PREDICTION HISTORY
+    st.divider()
+    st.subheader("📊 Prediction History & Analytics")
+
+    if supabase is not None:
+        try:
+            response = (
+                supabase.table("prediction_history")
+                .select("*")
+                .order("created_at", desc=True)
+                .execute()
+            )
+
+            records = response.data or []
+            history_df = pd.DataFrame(records)
+
+            if not history_df.empty:
+
+                total_predictions = len(history_df)
+
+                churn_count = (
+                    history_df["prediction"]
+                    .astype(str)
+                    .str.strip()
+                    .str.lower()
+                    .isin(["yes", "1", "true"])
+                    .sum()
+                )
+
+                stay_count = total_predictions - churn_count
+
+                churn_percentage = (
+                    churn_count / total_predictions * 100
+                )
+
+                c1, c2, c3, c4 = st.columns(4)
+
+                c1.metric("Total Predictions", total_predictions)
+                c2.metric("Churn Customers", int(churn_count))
+                c3.metric("Non-Churn Customers", int(stay_count))
+                c4.metric("Churn Percentage", f"{churn_percentage:.2f}%")
+
+                st.subheader("Recent Prediction Records")
+
+                display_columns = [
+                    "employee_id",
+                    "prediction",
+                    "churn_probability",
+                    "created_at"
+                ]
+
+                st.dataframe(
+                    history_df[display_columns],
+                    use_container_width=True
+                )
+
+                st.subheader("Prediction Distribution")
+
+                chart_df = pd.DataFrame({
+                    "Customer Status": ["Churn", "No Churn"],
+                    "Count": [int(churn_count), int(stay_count)]
+                })
+
+                st.bar_chart(
+                    chart_df.set_index("Customer Status")
+                )
+
+            else:
+                st.info(
+                    "No prediction history found yet. "
+                    "Make a customer prediction to see records here."
+                )
+
+        except Exception as e:
+            st.error("Could not load prediction history.")
+            st.caption(str(e))
+
+    else:
+        st.warning("Supabase connection is not available.")
 
     st.subheader("Customer Prediction Access")
     st.write("You can also use the prediction system below.")
@@ -241,6 +337,7 @@ if submitted:
 
         if churn_label is None:
             st.error("Churn class could not be identified.")
+
         else:
             st.divider()
             st.subheader("📈 Prediction Result")
@@ -251,9 +348,12 @@ if submitted:
                 st.success("✅ Customer is likely to stay (No Churn).")
 
             if hasattr(model, "predict_proba"):
+
                 probabilities = model.predict_proba(input_data)[0]
                 churn_index = classes.index(churn_label)
-                churn_probability = probabilities[churn_index] * 100
+                churn_probability = float(
+                    probabilities[churn_index] * 100
+                )
 
                 st.metric(
                     "Churn Probability",
@@ -261,8 +361,36 @@ if submitted:
                 )
 
                 st.progress(
-                    min(max(float(churn_probability) / 100, 0.0), 1.0)
+                    min(max(churn_probability / 100, 0.0), 1.0)
                 )
 
-    except Exception:
+                # SAVE PREDICTION TO SUPABASE
+                if supabase is not None:
+                    try:
+                        supabase.table("prediction_history").insert({
+                            "employee_id": user_id,
+                            "customer_data": input_data.to_dict(
+                                orient="records"
+                            )[0],
+                            "prediction": str(prediction),
+                            "churn_probability": churn_probability
+                        }).execute()
+
+                        st.success(
+                            "Prediction history saved successfully!"
+                        )
+
+                    except Exception as e:
+                        st.warning(
+                            "Prediction completed, but history could not be saved."
+                        )
+                        st.caption(str(e))
+
+                else:
+                    st.warning(
+                        "Prediction completed, but Supabase is not connected."
+                    )
+
+    except Exception as e:
         st.error("Prediction failed. Please check the customer details.")
+        st.caption(str(e))
